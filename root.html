@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        html {
+            overflow: hidden;
+            background-color: black;
+            color: chartreuse;
+        }
+        select {
+            overflow: hidden;
+            background-color: black;
+            color: chartreuse;
+        }
+        .header {
+            background-color: #333;
+            overflow: hidden;
+        }
+        .header form {
+            float: right;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
+    <meta charset="UTF-8">
+    <link rel="icon" href="/favicon">
+    <title>Radiation-Server v0.2</title>
+</head>
+<body>
+<div class="header">
+    <a onclick="init()">home</a>
+    <form>
+        <label for="hc">History:</label>
+        <select id="hc" name="hc">
+        </select>
+        <a onclick="h(document.getElementById('hc').value)" style="cursor: pointer">Load</a>
+    </form>
+
+</div>
+<div id="chartCanvas"></div>
+    <canvas id="myChart"></canvas>
+<script>
+    let cc = document.getElementById("chartCanvas");
+    function addOption(label) {
+        let fs = document.getElementById("hc");
+        let opt = document.createElement('option');
+        opt.value = label;
+        opt.innerHTML = label;
+        fs.appendChild(opt);
+    }
+    function httpGetAsync(url, callback) {
+        let httpRequest = new XMLHttpRequest();
+        httpRequest.onreadystatechange = function() {
+            if (httpRequest.readyState === 4 && httpRequest.status === 200) {
+                let data = httpRequest.responseText;
+                if (callback) {
+                    callback(data);
+                }
+            }
+        };
+        httpRequest.open('GET', url, true);
+        httpRequest.send(null);
+    }
+    function drawChart(x, y) {
+        while (cc.firstChild) {
+            cc.removeChild(cc.firstChild);
+        }
+        nc = document.createElement("canvas");
+        nc.id = "myChart"
+        cc.appendChild(nc)
+        new Chart("myChart", {
+            type: "line",
+            data: {
+                labels: x,
+                datasets: [{
+                    label: "uSv/hr",
+                    fill: false,
+                    lineTension: 0,
+                    backgroundColor: "rgb(47,255,0)",
+                    borderColor: "rgb(16,128,0)",
+                    data: y
+                }]
+            },
+            options: {
+                legend: {display: false},
+
+                scales : {
+                    yAxes: [{
+                        ticks: {
+                            min: Math.min.apply(this, y) - 0.1,
+                            max: Math.max.apply(this, y) + 0.1,
+                            stepSize: 0.1
+                        }
+                    }]
+                }
+            }
+        });
+    }
+    httpGetAsync("/history_api?action=list", function (data) {
+        let hj = JSON.parse(data);
+        for (let value of hj["list"]) {
+            console.log(value);
+            addOption(value);
+        }
+    });
+    function init() {
+        httpGetAsync("/chart_api", function (data) {
+            let pj = JSON.parse(data);
+            let xValues = pj["TS"];
+            let yValues = pj["Values"];
+            drawChart(xValues, yValues);
+        });
+    }
+    function h(target) {
+        document.getElementById("myChart").innerHTML = "";
+        httpGetAsync("/history_api?action=data&file="+target, function (data) {
+            let pj = JSON.parse(data);
+            let xValues = pj["TS"];
+            let yValues = pj["Values"];
+            drawChart(xValues, yValues);
+        });
+    }
+    init();
+</script>
+</body>
+</html>
